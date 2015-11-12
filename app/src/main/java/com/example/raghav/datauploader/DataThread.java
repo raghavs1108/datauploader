@@ -1,8 +1,10 @@
 package com.example.raghav.datauploader;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -20,6 +22,7 @@ import android.widget.TextView;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -27,7 +30,7 @@ import java.io.RandomAccessFile;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
-public class DataThread extends Thread implements SensorEventListener, LocationListener{
+public class DataThread extends Thread implements SensorEventListener, LocationListener {
 
     private final Context mContext;
     private final Activity mActivity;
@@ -47,68 +50,85 @@ public class DataThread extends Thread implements SensorEventListener, LocationL
 
     float[] rotation = new float[6];
 
-    private float[] realAccValues = {0f ,0f ,0f ,0f};
+    private float[] realAccValues = {0f, 0f, 0f, 0f};
     public float[] rotationMatrix = new float[16];
     public float[] invertedRotationMatrix = new float[16];
     public float[] inclinationMatrix = new float[16];
 
-    public double [] location = new double[2];
+    public double[] location = new double[2];
     private SensorManager mSensorManager;
 
-    private FileWriter writer;
+    BufferedWriter writer;
     String imei;
     static String filename;
     private String column_order = "time,latitude,longitude,xAcc,yAcc,zAcc";
-    public void run() {
 
-        Log.d("","In run.");
-        this.mSensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
-        locationManager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
-        TelephonyManager telephonyManager = (TelephonyManager)mContext.getSystemService(Context.TELEPHONY_SERVICE);
-        imei = telephonyManager.getDeviceId();
-        filename = "/sdcard/sensordata.csv";
-        File file = new File(filename);
+    private boolean createDir() {
+        File folder = new File(Environment.getExternalStorageDirectory() + File.separator + R.string.app_name);
+        boolean success = true;
+        if (!folder.exists()) {
+            success = folder.mkdir();
+        }
+        return success;
+    }
 
+    private boolean writeToFile(String filename, String content) {
+
+        /*File file;
+        FileOutputStream outputStream;
         try {
-            new RandomAccessFile(filename, "rw").setLength(0);
-            BufferedWriter writer = new BufferedWriter(new FileWriter(file));
-                writer.write(imei+ "\n");
-                writer.write(column_order+"\n");
-                writer.close();
-            Log.d("", "New File.");
-            }
-            catch (IOException e) {
-                Log.e("Exception", "File write failed: " + e.toString());
-            }
+            file = new File(Environment.getExternalStorageDirectory(), filename);
 
-//        File file = new File(filename);
-//        long len = file.length();
-//        if (len == 0){
-//            try {
-//                BufferedWriter writer = new BufferedWriter(new FileWriter(file));
-//                writer.write(imei);
-//                writer.close();
-//            }
-//            catch (IOException e) {
-//                Log.e("Exception", "File write failed: " + e.toString());
-//            }
-//        }
-//        long maxlen = 1024*1024*20; // 20 mb
-//        if(len >= maxlen){
-//            try {
-//                new RandomAccessFile(filename, "rw").setLength(0);
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//        }
-
-        try {
-            writer = new FileWriter(filename, true);
+            outputStream = new FileOutputStream(file);
+            outputStream.write(content.getBytes());
+            outputStream.close();
         } catch (IOException e) {
             e.printStackTrace();
+        }*/
+        if (!Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)){
+            //handle case of no SDCARD present
         }
+        else {
+            //create file
+            try {
+                File file = new File(Environment.getExternalStorageDirectory(), filename);
+                FileOutputStream outputStream = new FileOutputStream(file);
+                outputStream.write(content.getBytes());
+                outputStream.close();
+            }
+            catch (Exception e){
+                Log.e("Exception", "File Exception" + e.getMessage());
+            }
+        }
+
+        return true;
+    }
+
+    public void run() {
+
+        Log.d("", "In run.");
+//        Log.d("thread ID: ",String.valueOf(android.os.Process.getThreadPriority(android.os.Process.myTid())));
+        this.mSensorManager = (SensorManager) mContext.getSystemService(Context.SENSOR_SERVICE);
+        locationManager = (LocationManager) mContext.getSystemService(Context.LOCATION_SERVICE);
+        TelephonyManager telephonyManager = (TelephonyManager) mContext.getSystemService(Context.TELEPHONY_SERVICE);
+        imei = telephonyManager.getDeviceId();
+        boolean newCreated = createDir();
+        filename = "sensordata.csv";
+        writeToFile(filename, imei + "\n");
+        writeToFile(filename, column_order + "\n");
+
         try {
             Looper.prepare();
+            if (mContext.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && mContext.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    public void requestPermissions(@NonNull String[] permissions, int requestCode)
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for Activity#requestPermissions for more details.
+                return;
+            }
             locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, this); // This error isn't worth a second look.
             initListeners();
             Looper.loop();
@@ -181,6 +201,7 @@ public class DataThread extends Thread implements SensorEventListener, LocationL
     @Override
     public void onSensorChanged(SensorEvent event) {
 //        Log.d("","onSensorChanged");
+        Log.d("thread ID: ", String.valueOf(android.os.Process.getThreadPriority(android.os.Process.myTid())));
         switch(event.sensor.getType()) {
             case Sensor.TYPE_GRAVITY:
                 gravity = event.values;
@@ -223,13 +244,13 @@ public class DataThread extends Thread implements SensorEventListener, LocationL
 
         convert_coordinate();
         String time = getTimestamp();
-        TextView text = (TextView) mActivity.findViewById(R.id.textbox1);
-        text.setText(imei +"\n" + realAccValues[0] + "\n" + realAccValues[1] + "\n" + realAccValues[2] + "\n" + time + "\n" + location[0] + "\n" + location[1]);
+//        TextView text = (TextView) mActivity.findViewById(R.id.textbox1);
+//        text.setText(imei +"\n" + realAccValues[0] + "\n" + realAccValues[1] + "\n" + realAccValues[2] + "\n" + time + "\n" + location[0] + "\n" + location[1]);
         try {
             saveToFile(time, location[0], location[1], realAccValues[0], realAccValues[1], realAccValues[2]);
         }
         catch(IOException e){
-            Log.d("","File Write failed.");
+            Log.d("","File Write failed. "+ e.getMessage());
         }
     }
     private void convert_coordinate() {
@@ -255,7 +276,7 @@ public class DataThread extends Thread implements SensorEventListener, LocationL
     }
 
     private void saveToFile(String time, double latitude, double longitiude, double xAcc, double yAcc, double zAcc) throws IOException {
-        Log.d("","SaveToFile.");
-        writer.write(time+","+latitude+","+longitiude+","+xAcc+","+yAcc+","+zAcc+"\n");
+        Log.d("", "SaveToFile.");
+        writeToFile(filename, time + "," + latitude + "," + longitiude + "," + xAcc + "," + yAcc + "," + zAcc + "\n");
     }
 }

@@ -41,6 +41,8 @@ public class MainActivity extends ActionBarActivity {
         super.onCreate(savedInstanceState);
         Log.d("", "onCreate");
         context = MainActivity.this;
+
+        Log.d("thread ID: ",String.valueOf(android.os.Process.getThreadPriority(android.os.Process.myTid())));
         activity = this;
         setContentView(R.layout.activity_main);
         text = (TextView) findViewById(R.id.textbox1);
@@ -70,7 +72,7 @@ public class MainActivity extends ActionBarActivity {
         });
 
         upload = (Button) findViewById(R.id.upload);
-        upLoadServerUri = "http://192.168.0.104:8080/upload";
+        upLoadServerUri = "https://pothole-detector-server.herokuapp.com/"; //"http://192.168.0.104:8080/upload";
 
         upload.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -143,12 +145,12 @@ public class MainActivity extends ActionBarActivity {
                 conn.setRequestProperty("Connection", "Keep-Alive");
                 conn.setRequestProperty("ENCTYPE", "multipart/form-data");
                 conn.setRequestProperty("Content-Type", "multipart/form-data;boundary=" + boundary);
-                conn.setRequestProperty("uploaded_file", fileName);
+                conn.setRequestProperty("DATA", fileName);
 
                 dos = new DataOutputStream(conn.getOutputStream());
 
                 dos.writeBytes(twoHyphens + boundary + lineEnd);
-                dos.writeBytes("Content-Disposition: form-data; name=\"uploaded_file\";filename=\""
+                dos.writeBytes("Content-Disposition: form-data; name=\"DATA\";filename=\""
                                 + thread.filename + "\"" + lineEnd);
 
                         dos.writeBytes(lineEnd);

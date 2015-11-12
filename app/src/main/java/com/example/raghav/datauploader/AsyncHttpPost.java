@@ -1,11 +1,12 @@
 package com.example.raghav.datauploader;
-
 import android.app.ProgressDialog;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Environment;
 import android.util.Log;
 import android.widget.TextView;
+
+import com.example.raghav.datauploader.MainActivity;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -33,7 +34,7 @@ class AsyncHttpPost extends AsyncTask<String, Void, Void> {
     File root;
     File allFiles;
 
-    String urlServer = "http://192.168.0.104:8080/";
+    String urlServer = "https://pothole-detector-server.herokuapp.com/"; //"http://192.168.0.104:8080/";
     String lineEnd = "\r\n";
     String twoHyphens = "--";
     String boundary =  "*****";
